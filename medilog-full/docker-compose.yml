@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  cassandra:
+    image: cassandra:4.1
+    container_name: medilog-cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: "MediLogCluster"
+      CASSANDRA_DC: "datacenter1"
+      CASSANDRA_RACK: "rack1"
+      CASSANDRA_ENDPOINT_SNITCH: "GossipingPropertyFileSnitch"
+    ports:
+      - "9043:9042"
+      - "7000:7000"
+      - "7001:7001"
+      - "9160:9160"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "select now() from system.local;"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - medilog-network
+
+  backend:
+    build:
+      context: ./medilog-backend
+      dockerfile: Dockerfile
+    container_name: medilog-backend
+    ports:
+      - "5000:5000"
+    environment:
+      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_PORT: 9042
+      CASSANDRA_KEYSPACE: medilog
+      PORT: 5000
+      NODE_ENV: development
+      JWT_SECRET: your_jwt_secret_key_change_in_production
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./medilog-backend:/app
+      - /app/node_modules
+    networks:
+      - medilog-network
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./medilog-frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost:5000/api
+    container_name: medilog-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+    volumes:
+      - ./medilog-frontend:/app
+      - /app/node_modules
+    networks:
+      - medilog-network
+    command: npm start
+
+volumes:
+  cassandra_data:
+
+networks:
+  medilog-network:
+    driver: bridge
