@@ -18,7 +18,8 @@ router.get('/:id/appointments', async (req, res) => {
     
     const result = await client.execute(
       'SELECT * FROM appointments_by_doctor_day WHERE doctor_id = ? AND appt_date = ?',
-      [req.params.id, date]
+      [req.params.id, date],
+      { prepare: true }
     );
 
     res.json(result.rows);

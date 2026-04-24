@@ -39,9 +39,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const client = await getClient();
-    const result = await client.execute('SELECT * FROM patients WHERE patient_id = ?', [
-      req.params.id,
-    ]);
+    const result = await client.execute(
+      'SELECT * FROM patients WHERE patient_id = ?',
+      [req.params.id],
+      { prepare: true }
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Patient not found' });
@@ -117,9 +119,11 @@ router.put('/:id', async (req, res) => {
     const client = await getClient();
 
     // Get current data for audit
-    const current = await client.execute('SELECT * FROM patients WHERE patient_id = ?', [
-      req.params.id,
-    ]);
+    const current = await client.execute(
+      'SELECT * FROM patients WHERE patient_id = ?',
+      [req.params.id],
+      { prepare: true }
+    );
     if (current.rows.length === 0) {
       return res.status(404).json({ error: 'Patient not found' });
     }
@@ -178,7 +182,8 @@ router.get('/:id/examinations', async (req, res) => {
     const client = await getClient();
     const result = await client.execute(
       'SELECT * FROM examinations_by_patient WHERE patient_id = ?',
-      [req.params.id]
+      [req.params.id],
+      { prepare: true }
     );
 
     res.json(result.rows);
@@ -233,7 +238,8 @@ router.get('/:id/prescriptions', async (req, res) => {
     const client = await getClient();
     const result = await client.execute(
       'SELECT * FROM prescriptions_by_patient WHERE patient_id = ?',
-      [req.params.id]
+      [req.params.id],
+      { prepare: true }
     );
 
     res.json(result.rows);
@@ -324,7 +330,8 @@ router.get('/:id/medications/:drugId/log', async (req, res) => {
 
     const result = await client.execute(
       'SELECT * FROM medication_log WHERE patient_id = ? AND drug_id = ? LIMIT 1000',
-      [req.params.id, req.params.drugId]
+      [req.params.id, req.params.drugId],
+      { prepare: true }
     );
 
     const cutoffDate = new Date();
@@ -347,7 +354,8 @@ router.get('/:id/audit', async (req, res) => {
 
     const result = await client.execute(
       'SELECT * FROM patient_audit_log WHERE patient_id = ? LIMIT 1000',
-      [req.params.id]
+      [req.params.id],
+      { prepare: true }
     );
 
     let filtered = result.rows;
@@ -379,11 +387,12 @@ router.get('/:id/interaction-check', async (req, res) => {
 
     // Get active prescriptions
     const prescResult = await client.execute(
-      'SELECT * FROM prescriptions_by_patient WHERE patient_id = ? AND active = true',
-      [req.params.id]
+      'SELECT * FROM prescriptions_by_patient WHERE patient_id = ?',
+      [req.params.id],
+      { prepare: true }
     );
 
-    const drugs = prescResult.rows.map((r) => r.drug_id);
+    const drugs = prescResult.rows.filter((r) => r.active).map((r) => r.drug_id);
     const interactions = [];
 
     // Check all pairs for interactions
@@ -391,7 +400,8 @@ router.get('/:id/interaction-check', async (req, res) => {
       for (let j = i + 1; j < drugs.length; j++) {
         const result = await client.execute(
           'SELECT * FROM drug_interactions WHERE drug_id_a = ? AND drug_id_b = ?',
-          [drugs[i], drugs[j]]
+          [drugs[i], drugs[j]],
+          { prepare: true }
         );
 
         if (result.rows.length > 0) {

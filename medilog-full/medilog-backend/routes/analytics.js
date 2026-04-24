@@ -13,7 +13,8 @@ router.get('/prescriptions', async (req, res) => {
 
     const result = await client.execute(
       'SELECT * FROM prescription_stats WHERE month = ?',
-      [month]
+      [month],
+      { prepare: true }
     );
 
     res.json(
@@ -43,7 +44,8 @@ router.get('/diagnoses', async (req, res) => {
     for (const patient of patients.rows) {
       const result = await client.execute(
         'SELECT icd10_code FROM examinations_by_patient WHERE patient_id = ?',
-        [patient.patient_id]
+        [patient.patient_id],
+        { prepare: true }
       );
 
       for (const exam of result.rows) {
